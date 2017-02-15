@@ -1,0 +1,28 @@
+#!/bin/bash
+set -e
+if [[ "$1" =~ ^[1-9][0-9]*$ ]]; then
+  WAIT=$1; shift
+fi
+let WAIT=${WAIT:-5}*60
+[[ $1 ]] || exit 1
+
+finish() {
+  ERR=$?
+  trap - ERR EXIT
+  echo
+  if [[ -s "$LOG" ]]; then
+    echo -e "Last ${LINES:=500} lines of log:"
+    tail -$LINES "$LOG"
+  fi
+  kill $CHPID && wait &>>/dev/null
+  exit $ERR
+}
+
+: ${COLUMNS:=70}
+echo Executing: $@
+while sleep $WAIT; do echo -n .; ((++n%COLUMNS)) || echo; done &
+CHPID=$!
+
+: >"${LOG:=/tmp/travis_wait.log}"
+trap finish ERR EXIT
+( eval "$@" ) &>>"$LOG"
